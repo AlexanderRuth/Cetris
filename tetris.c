@@ -25,6 +25,14 @@
 #define BOARD_HEIGHT 24
 #define BOARD_WIDTH 10
 
+#define DOG_COLOR 46
+#define L_DOG_COLOR 196
+#define T_COLOR 200
+#define L_COLOR 208
+#define J_COLOR 12
+#define LONG_COLOR 14
+#define SQUARE_COLOR 11
+
 int DOG_XY[2][4][2] = {
 				{ {0, 1}, {0, 2}, {1, 2}, {1, 3} },
 				{ {0, 3}, {1, 3}, {1, 2}, {2, 2} }
@@ -131,9 +139,13 @@ void rotate_piece();
 void drop_piece();
 void clear_lines();
 
+pthread_mutex_t draw_mutex;
+
 int main()
 {
 	printf("Tetris? Tetris!\n");
+
+	srand(time(NULL));
 
 	WINDOW *stdscr = initscr();
   	getmaxyx(stdscr, max_y, max_x);
@@ -146,8 +158,11 @@ int main()
 	pthread_t move_getter;
 	pthread_t game_runner;
 
+	pthread_mutex_init(&draw_mutex, NULL);
+
 	initscr();
-	
+	start_color();	
+
 	noecho();
 	curs_set(FALSE);
 
@@ -190,6 +205,7 @@ void* get_move(void* args)
 			game_move = tmp;
 		}
 
+		//pthread_mutex_lock(&draw_mutex);
 		switch(game_move){
 			case 'C':
 				move_piece_right();
@@ -208,6 +224,7 @@ void* get_move(void* args)
 				draw_blocks();
 				break;
 		}
+		//pthread_mutex_unlock(&draw_mutex);
 	}
 
 	return NULL;
@@ -298,7 +315,6 @@ void rotate_piece()
 	}
 	
 	if(!bad){
-		printf("Fine");
 		cur_piece->cur_position = new_position_num;
 		return;
 	}
@@ -334,7 +350,9 @@ void rotate_piece()
 }
 void move_piece_down()
 {
+	pthread_mutex_lock(&draw_mutex);
 	cur_piece->y_pos += 1;
+	pthread_mutex_unlock(&draw_mutex);
 }
 
 void move_piece_right()
@@ -397,31 +415,27 @@ void piece_into_blocks()
 
 void draw_blocks()
 {
+	//pthread_mutex_lock(&draw_mutex);
 	clear();
 
-	start_color();
+        init_pair(1, SQUARE_COLOR, SQUARE_COLOR);
+        init_pair(2, L_COLOR, L_COLOR);
+        init_pair(3, J_COLOR, J_COLOR);
+        init_pair(4, LONG_COLOR, LONG_COLOR);
+	init_pair(5, L_DOG_COLOR, L_DOG_COLOR);
+	init_pair(6, DOG_COLOR, DOG_COLOR);
+	init_pair(7, T_COLOR, T_COLOR);	
+	init_pair(8, COLOR_WHITE, COLOR_WHITE);
 
-        init_pair(1, COLOR_YELLOW, COLOR_BLACK);
-        init_pair(2, COLOR_WHITE, COLOR_BLACK);
-        init_pair(3, COLOR_BLUE, COLOR_BLACK);
-        init_pair(4, COLOR_CYAN, COLOR_BLACK);
-	init_pair(5, COLOR_RED, COLOR_BLACK);
-	init_pair(6, COLOR_GREEN, COLOR_BLACK);
-	init_pair(7, COLOR_MAGENTA, COLOR_BLACK);	
-
-	attron(COLOR_PAIR(2));
-	for(int i = 0; i < BOARD_WIDTH*3 + 1; i++)
-		mvprintw(BOARD_HEIGHT-1, max_x/2 + i - 3*BOARD_WIDTH/2, "_");
-
-	for(int i = 0; i < BOARD_HEIGHT; i++){
-		attron(COLOR_PAIR(2));
+	for(int i = 0; i < BOARD_HEIGHT+1; i++){
+		attron(COLOR_PAIR(8));
 		mvprintw(i, max_x / 2 - 3*BOARD_WIDTH/2 - 1, "|");
 		mvprintw(i, max_x / 2 + 3*BOARD_WIDTH/2, "|");		
 
-		for(int j = 0; j < BOARD_WIDTH; j++){
+        	for(int k = 0; k < BOARD_WIDTH*3; k++)
+                	mvprintw(BOARD_HEIGHT, max_x/2 + k - 3*BOARD_WIDTH/2, "#");
 
-			//blocks[i][j].color = 1;
-			//blocks[i][j].present = rand() % 2;
+		for(int j = 0; j < BOARD_WIDTH; j++){
 
 			if(blocks[i][j].present || piece_in_spot(i, j)){
 				
@@ -430,15 +444,14 @@ void draw_blocks()
 				else
 					attron(COLOR_PAIR(cur_piece->color));
 
-				mvprintw(i, max_x / 2 + 3*j - 3*BOARD_WIDTH/2, "|");
-				mvprintw(i, max_x / 2 + 3*j + 1 - 3*BOARD_WIDTH/2, "_");
-				mvprintw(i, max_x / 2 + 3*j + 2 - 3*BOARD_WIDTH/2, "|");
-				
-				if(i != 0)
-					mvprintw(i-1, max_x /2 + 3*j + 1 - 3*BOARD_WIDTH/2, "_");
+				mvprintw(i, max_x / 2 + 3*j - 3*BOARD_WIDTH/2, "#");
+				mvprintw(i, max_x / 2 + 3*j + 1 - 3*BOARD_WIDTH/2, "#");
+				mvprintw(i, max_x / 2 + 3*j + 2 - 3*BOARD_WIDTH/2, "#");
+			
 			}
 		}
 	}
+	//pthread_mutex_unlock(&draw_mutex);
 
 	refresh();
 }
