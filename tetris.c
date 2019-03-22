@@ -205,7 +205,6 @@ void* get_move(void* args)
 			game_move = tmp;
 		}
 
-		//pthread_mutex_lock(&draw_mutex);
 		switch(game_move){
 			case 'C':
 				move_piece_right();
@@ -218,13 +217,12 @@ void* get_move(void* args)
 			case 'A':
 				rotate_piece();
 				draw_blocks();
-				break;
+				break;	
 			case ' ':
 				drop_piece();
 				draw_blocks();
 				break;
 		}
-		//pthread_mutex_unlock(&draw_mutex);
 	}
 
 	return NULL;
@@ -350,9 +348,7 @@ void rotate_piece()
 }
 void move_piece_down()
 {
-	pthread_mutex_lock(&draw_mutex);
 	cur_piece->y_pos += 1;
-	pthread_mutex_unlock(&draw_mutex);
 }
 
 void move_piece_right()
@@ -415,7 +411,7 @@ void piece_into_blocks()
 
 void draw_blocks()
 {
-	//pthread_mutex_lock(&draw_mutex);
+	pthread_mutex_lock(&draw_mutex);
 	clear();
 
         init_pair(1, SQUARE_COLOR, SQUARE_COLOR);
@@ -428,7 +424,7 @@ void draw_blocks()
 	init_pair(8, COLOR_WHITE, COLOR_WHITE);
 
 	for(int i = 0; i < BOARD_HEIGHT+1; i++){
-		attron(COLOR_PAIR(8));
+		attrset(COLOR_PAIR(8));
 		mvprintw(i, max_x / 2 - 3*BOARD_WIDTH/2 - 1, "|");
 		mvprintw(i, max_x / 2 + 3*BOARD_WIDTH/2, "|");		
 
@@ -440,9 +436,9 @@ void draw_blocks()
 			if(blocks[i][j].present || piece_in_spot(i, j)){
 				
 				if(blocks[i][j].present)
-					attron(COLOR_PAIR(blocks[i][j].color));
+					attrset(COLOR_PAIR(blocks[i][j].color));
 				else
-					attron(COLOR_PAIR(cur_piece->color));
+					attrset(COLOR_PAIR(cur_piece->color));
 
 				mvprintw(i, max_x / 2 + 3*j - 3*BOARD_WIDTH/2, "#");
 				mvprintw(i, max_x / 2 + 3*j + 1 - 3*BOARD_WIDTH/2, "#");
@@ -451,7 +447,7 @@ void draw_blocks()
 			}
 		}
 	}
-	//pthread_mutex_unlock(&draw_mutex);
+	pthread_mutex_unlock(&draw_mutex);
 
 	refresh();
 }
