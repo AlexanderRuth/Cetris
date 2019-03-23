@@ -124,6 +124,12 @@ int game_end = 0;
 int max_y;
 int max_x;
 
+int drop_speed = 300000000;
+int speed_multiplier = 1;
+
+int down_pressed = 0;
+time_t time_pressed;
+
 void draw_debug(struct tetris_piece *draw);
 struct tetris_piece * get_new_piece();
 void draw_blocks();
@@ -138,6 +144,8 @@ void piece_into_blocks();
 void rotate_piece();
 void drop_piece();
 void clear_lines();
+
+void* down_check(void* args);
 
 pthread_mutex_t draw_mutex;
 
@@ -157,6 +165,7 @@ int main()
 
 	pthread_t move_getter;
 	pthread_t game_runner;
+	pthread_t down_checker;
 
 	pthread_mutex_init(&draw_mutex, NULL);
 
@@ -170,9 +179,11 @@ int main()
 
 	pthread_create(&move_getter, NULL, get_move, NULL);
 	pthread_create(&game_runner, NULL, game_loop, NULL);
+	//pthread_create(&down_checker, NULL, down_check, NULL);
 	
 	pthread_join(move_getter, NULL);
 	pthread_join(game_runner, NULL);
+	//pthread_join(down_checker, NULL);
 	
 	endwin();
 
@@ -207,25 +218,60 @@ void* get_move(void* args)
 
 		switch(game_move){
 			case 'C':
+				down_pressed = 0;
 				move_piece_right();
 				draw_blocks();
 				break;
 			case 'D':
+				down_pressed = 0;
 				move_piece_left();
 				draw_blocks();
 				break;
 			case 'A':
+				down_pressed = 0;
 				rotate_piece();
 				draw_blocks();
-				break;	
+				break;
+			case 'B':
+				down_pressed = 1;
+				time_pressed = time(NULL);
+				break;			
 			case ' ':
 				drop_piece();
 				draw_blocks();
+				down_pressed = 0;
 				break;
 		}
 	}
 
 	return NULL;
+}
+
+void* down_check(void* args)
+{
+	const double CLOCK_RATE = 100;
+	struct timespec timer;
+
+	timer.tv_sec = 0;
+	timer.tv_nsec = CLOCK_RATE;
+
+	while(!game_end){
+
+		if(down_pressed){
+			speed_multiplier = 3;
+
+			if(difftime(time(NULL), time_pressed) * 1000 > CLOCK_RATE){
+				down_pressed = 0;
+				speed_multiplier = 1;
+			}
+		}
+		else{
+			speed_multiplier = 1;
+		}
+
+		nanosleep(&timer, NULL);
+	
+	}
 }
 
 void* game_loop(void* args)
@@ -237,7 +283,7 @@ void* game_loop(void* args)
 		draw_blocks();
 
 		timer.tv_sec = 0;
-		timer.tv_nsec = 400000000;
+		timer.tv_nsec = drop_speed / speed_multiplier;
 
 		nanosleep(&timer, NULL);
 		
@@ -414,7 +460,9 @@ void draw_blocks()
 	pthread_mutex_lock(&draw_mutex);
 	clear();
 
-        init_pair(1, SQUARE_COLOR, SQUARE_COLOR);
+	mvprintw(1, max_x - 12, "%f", difftime(time(NULL), time_pressed) * 1000);		
+        
+	init_pair(1, SQUARE_COLOR, SQUARE_COLOR);
         init_pair(2, L_COLOR, L_COLOR);
         init_pair(3, J_COLOR, J_COLOR);
         init_pair(4, LONG_COLOR, LONG_COLOR);
@@ -443,7 +491,6 @@ void draw_blocks()
 				mvprintw(i, max_x / 2 + 3*j - 3*BOARD_WIDTH/2, "#");
 				mvprintw(i, max_x / 2 + 3*j + 1 - 3*BOARD_WIDTH/2, "#");
 				mvprintw(i, max_x / 2 + 3*j + 2 - 3*BOARD_WIDTH/2, "#");
-			
 			}
 		}
 	}
@@ -467,6 +514,8 @@ int piece_in_spot(int y, int x)
 
 struct tetris_piece * get_new_piece()
 {
+	speed_multiplier = 1;
+
 	struct tetris_piece *new_piece = (struct tetris_piece *) malloc(sizeof(struct tetris_piece));
 	
 	if(!new_piece){
